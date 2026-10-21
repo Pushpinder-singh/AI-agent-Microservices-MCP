@@ -1,10 +1,13 @@
 package com.cargo.customerMS;
 
+import com.cargo.customerMS.entity.Customer;
 import com.cargo.customerMS.repository.CustomerRepository;
+import com.cargo.customerMS.service.CustomerService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.cache.CacheManager;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.context.WebApplicationContext;
@@ -12,6 +15,7 @@ import org.springframework.web.context.WebApplicationContext;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -30,12 +34,29 @@ class CustomerApiIntegrationTest {
     @Autowired
     private CustomerRepository customerRepository;
 
+    @Autowired
+    private CustomerService customerService;
+
+    @Autowired
+    private CacheManager cacheManager;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         customerRepository.deleteAll();
+        cacheManager.getCache("customers").clear();
         mockMvc = webAppContextSetup(applicationContext).build();
+    }
+
+    @Test
+    void repeatedCustomerReadsAreServedFromCache() {
+        Customer customer = customerRepository.save(new Customer("Robin", 27));
+
+        var firstRead = customerService.getCustomerById(customer.getId());
+        var secondRead = customerService.getCustomerById(customer.getId());
+
+        assertSame(firstRead, secondRead);
     }
 
     @Test
